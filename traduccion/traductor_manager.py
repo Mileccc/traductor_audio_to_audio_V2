@@ -1,38 +1,52 @@
 from transformers import MarianMTModel, MarianTokenizer
+import threading
 
 
-class Traductor:
-    def __init__(self, modelo = "Helsinki-NLP/opus-mt-es-es"):
+class Traductor(threading.Thread):
+    def __init__(self, cola_traduccion, cola_traduccion_a_audio, evento_terminacion_procesos):
         """
         Inicializa el modelo y el tokenizador para la traducción es-en.
         """
-        self.modelo = modelo
-        self.tokenizer = MarianTokenizer.from_pretrained(modelo)
-        self.model = MarianMTModel.from_pretrained(modelo)
+        super().__init__()
+        self.cola_traduccion = cola_traduccion
+        self.cola_traduccion_a_audio = cola_traduccion_a_audio
+        self.evento_terminacion_procesos = evento_terminacion_procesos
+        self.modelo = "Helsinki-NLP/opus-mt-es-es"
+        self.tokenizer = MarianTokenizer.from_pretrained(self.modelo)
+        self.model = MarianMTModel.from_pretrained(self.modelo)
+        self.idioma = "es"
+        self.path_hablante = "Helsinki-NLP/opus-mt-es-es"
 
-    def traducir(self, texto):
+    def run(self):
+        while not self.evento_terminacion_procesos.is_set():
+            dic_traduccion = self.cola_traduccion.get(timeout=60)
+            if dic_traduccion["modelo"] != self.modelo and dic_traduccion["modelo"] != "":
+                self.cargar_modelo(dic_traduccion["modelo"])
+            if dic_traduccion["idioma"] != "":
+                self.idioma = dic_traduccion["idioma"]
+                self.path_hablante = dic_traduccion["path_hablante"]
+            self.traducir(dic_traduccion["texto"],
+                          self.idioma, self.path_hablante)
+
+    def traducir(self, texto, idioma, path_hablante):
         """
         Traduce un texto del español al inglés.
         """
         # Tokenización del texto
-        texto_tokenizado = self.tokenizer(texto, return_tensors="pt", padding=True, truncation=True)
+        texto_tokenizado = self.tokenizer(
+            texto, return_tensors="pt", padding=True, truncation=True)
 
         # Generación de la traducción
         traduccion_ids = self.model.generate(**texto_tokenizado)
 
         # Decodificación del texto traducido
-        texto_traducido = self.tokenizer.decode(traduccion_ids[0], skip_special_tokens=True)
+        texto_traducido = self.tokenizer.decode(
+            traduccion_ids[0], skip_special_tokens=True)
+        print(texto_traducido)
+        self.cola_traduccion_a_audio.put(
+            {"texto_traducido": texto_traducido, "idioma": idioma, "path_hablante": path_hablante})
 
-        return texto_traducido
-    
-    def cambiar_modelo(self, modelo):
-        self.cargar_modelo(modelo)
-        print(f"Modelo dentro de traductor_manager:{self.modelo}")
-        
     def cargar_modelo(self, modelo):
         self.model = modelo
         self.tokenizer = MarianTokenizer.from_pretrained(modelo)
         self.model = MarianMTModel.from_pretrained(modelo)
-        
-
- 

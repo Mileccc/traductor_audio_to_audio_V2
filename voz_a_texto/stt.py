@@ -1,20 +1,53 @@
 import asyncio
 from faster_whisper import WhisperModel
+import logging
+import queue
+import queue
+import io
+import multiprocessing
 
-class TranscriptorATexto:
-    def __init__(self, tamanio_modelo="medium", dispositivo="cuda", tipo_calculo="float16", lenguaje="es"):
-        print("Transcriptor inicializado con modelo Whisper.")
-        self.tamanio_modelo = tamanio_modelo
-        self.dispositivo = dispositivo
-        self.tipo_calculo = tipo_calculo
-        self.lenguaje = lenguaje
-        self.modelo = WhisperModel(self.tamanio_modelo, device=self.dispositivo, compute_type=self.tipo_calculo)
 
-    async def transcribe_audio(self, datos_audio, loop):
-        transcripcion = await loop.run_in_executor(None, self.transcribe, datos_audio)
-        return transcripcion
+class TranscriptorATexto():
+    def __init__(self, cola_audios_micro, cola_verificacion, evento_terminacion_procesos):
+        self.cola_audios_micro: queue.Queue = cola_audios_micro
+        self.cola_verificacion: queue.Queue = cola_verificacion
+        self.evento_terminacion_procesos: multiprocessing.Event = evento_terminacion_procesos
+        self.whisper_modelo: WhisperModel = None
 
-    def transcribe(self, datos_audio):
-        segmentos_generador, info = self.modelo.transcribe(datos_audio, beam_size=5, language=self.lenguaje, vad_filter=True)
-        transcripcion_completa = ' '.join([segmento.text.strip() for segmento in segmentos_generador])
-        return transcripcion_completa
+    async def run(self):
+        print("Iniciando en la clase TranscriptorSTT")
+        try:
+            self.whisper_modelo = WhisperModel(
+                "medium", device="cuda", compute_type="float16")
+        except Exception as e:
+            logging.error(
+                f"Fallo en la inicialización del modelo Whisper: {e}")
+        print("Whisper iniciado correctamente.")
+        await self.loop_transcripcion()
+
+    async def loop_transcripcion(self,):
+        while not self.evento_terminacion_procesos.is_set():
+            try:
+                try:
+                    await asyncio.sleep(0.01)
+                    datos_audio: io.BytesIO = self.cola_audios_micro.get(
+                        timeout=60)
+                except queue.Empty:
+                    logging.debug("Cola_audios_micro vacía")
+                    continue
+                if datos_audio:
+                    segments, info = self.whisper_modelo.transcribe(
+                        datos_audio, beam_size=5, language="es")
+                    texto: str = " ".join(segment.text for segment in segments)
+                    logging.debug(
+                        f"Transcripción inicial en TranscriptorSTT: {texto}")
+                    try:
+                        await asyncio.sleep(0.01)
+                        # print(
+                        #     f"Transcripción inicial en TranscriptorSTT: {texto}")
+                        self.cola_verificacion.put_nowait(texto)
+                    except queue.Full:
+                        logging.warning(
+                            "La cola_verificacion está llena; el dato no fue añadido.")
+            except Exception as e:
+                logging.error(f"Error al transcribir audio: {e}")

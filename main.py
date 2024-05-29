@@ -1,82 +1,130 @@
+
 import asyncio
-import threading
+import multiprocessing
+import time
+import signal
+import sys
+import queue
 from voz_a_texto.captura_audio import AudioManager
 from voz_a_texto.stt import TranscriptorATexto
 from traduccion.traductor_manager import Traductor
 from texto_a_voz.conversor_voz import TranscriptorAAudio
 from comandos.atajos_comandos import EjecucionComandos
+from texto_a_voz.reproducir_audio import Reproductor
 
 
-cola_audios = asyncio.Queue()
-cola_textos = asyncio.Queue()
-cola_traducciones = asyncio.Queue()
-audio_ready_event = asyncio.Event()
-traductor = Traductor()
-transcriptor_audio = TranscriptorAAudio()
+def salida(signum, frame, evento_terminacion_procesos, lista):
+    print("Señal de terminación capturada, cerrando todo...")
+    evento_terminacion_procesos.set()
+    for proceso in lista:
+        proceso.terminate()
+    for proceso in lista:
+        proceso.join()
+    print("Todos los procesos y el hilo han sido terminados correctamente.")
+    sys.exit(0)
+
+# ********************AUDIO ENTRADA ************************
 
 
-async def tomando_audio():
-    print("Configurando la captura de audio...")
-    loop = asyncio.get_running_loop()
-    configurador_audio = AudioManager(cola_audios, loop)
-    hilo_captura_audio = threading.Thread(target=configurador_audio.escucha)
-    hilo_captura_audio.daemon = True
-    hilo_captura_audio.start()
-    print("Hilo de captura de audio iniciado.")
+async def funcion_audio_entrada(evento_terminacion_procesos, cola_verificacion):
+    colo_audio_micro = queue.Queue()
+
+    microfono = AudioManager(evento_terminacion_procesos, colo_audio_micro)
+    audio_a_texto = TranscriptorATexto(
+        colo_audio_micro, cola_verificacion, evento_terminacion_procesos)
+
+    microfono.start()
+    await audio_a_texto.run()
+    microfono.join()
 
 
-async def transcribir_audio():
-    print("Transcriptor configurado, esperando audio...")
-    transcriptor = TranscriptorATexto()
-    comando = EjecucionComandos(traductor, transcriptor_audio)
-    loop = asyncio.get_running_loop()
-    while True:
-        datos_audio = await cola_audios.get()
-        if datos_audio:
-            texto = await transcriptor.transcribe_audio(datos_audio, loop)
-            comando.revisar_comando(texto)
-            if texto.strip():
-                print(f"Texto transcribido: {texto}")
-                await cola_textos.put(texto)
+def audio_entrada(evento_terminacion_procesos, cola_verificacion):
+    asyncio.run(funcion_audio_entrada(
+        evento_terminacion_procesos, cola_verificacion))
+
+# ********************TRATAR TEXTO ************************
 
 
-async def traducir_texto():
-    print("Configurando el traductor...")
-    # traductor = Traductor(modelos=["Helsinki-NLP/opus-mt-es-en", "Helsinki-NLP/opus-mt-en-fr"])
+def funcion_tratar_texto(cola_verificacion, evento_terminacion_procesos, cola_traduccion, cola_traduccion_a_audio):
+    comandos = EjecucionComandos(
+        evento_terminacion_procesos, cola_verificacion, cola_traduccion)
+    traductor = Traductor(
+        cola_traduccion, cola_traduccion_a_audio, evento_terminacion_procesos)
 
-    loop = asyncio.get_running_loop()
-    while True:
-        texto = await cola_textos.get()
-        if texto.strip():
-            # texto_traducido = await loop.run_in_executor(None, traductor.traducir_secuencial, texto)
-            texto_traducido = await loop.run_in_executor(None, traductor.traducir, texto)
-            print(f"Texto traducido: {texto_traducido}")
-            await cola_traducciones.put(texto_traducido)
+    comandos.start()
+    traductor.start()
+    comandos.join()
+    traductor.join()
 
 
-async def convertir_texto_a_audio(transcriptor_audio):
-    print("Transcriptor a audio configurado, esperando texto traducido...")
-    while True:
-        texto_traducido = await cola_traducciones.get()
-        if texto_traducido.strip():
-            await transcriptor_audio.texto_a_audio(texto_traducido)
+def tratar_texto(cola_verificacion, evento_terminacion_procesos, cola_traduccion, cola_traduccion_a_audio):
+    asyncio.run(funcion_tratar_texto(
+        cola_verificacion, evento_terminacion_procesos, cola_traduccion, cola_traduccion_a_audio))
+
+# ********************AUDIO SALIDA ************************
 
 
-async def main():
-    transcriptor_audio.iniciar_modelo()
+def funcion_audio_salida(evento_terminacion_procesos, cola_traduccion_a_audio):
+    cola_audios_final = queue.Queue()
+    texto_a_audio = TranscriptorAAudio(
+        evento_terminacion_procesos, cola_traduccion_a_audio, cola_audios_final)
+    reproducir = Reproductor(cola_audios_final, evento_terminacion_procesos)
 
-    tasks = [
-        asyncio.create_task(tomando_audio()),
-        asyncio.create_task(transcribir_audio()),
-        asyncio.create_task(traducir_texto()),
-        asyncio.create_task(convertir_texto_a_audio(transcriptor_audio)),
-        asyncio.create_task(transcriptor_audio.reproducir_audios())
-    ]
+    texto_a_audio.start()
+    reproducir.start()
+    texto_a_audio.join()
+    reproducir.join()
+
+
+def audio_salida(evento_terminacion_procesos, cola_traduccion_a_audio):
+    asyncio.run(funcion_audio_salida(
+        evento_terminacion_procesos, cola_traduccion_a_audio))
+
+
+def main():
+    # EVENTOS
+    evento_terminacion_procesos = multiprocessing.Event()
+
+    # COLAS
+    cola_verificacion = multiprocessing.Queue()
+    cola_traduccion = multiprocessing.Queue()
+    cola_traduccion_a_audio = multiprocessing.Queue()
+
+    # PROCESOS
+    proceso_audio_entrada = multiprocessing.Process(
+        target=audio_entrada, args=(evento_terminacion_procesos, cola_verificacion))
+    proceso_tratar_texto = multiprocessing.Process(
+        target=tratar_texto, args=(cola_verificacion, evento_terminacion_procesos, cola_traduccion, cola_traduccion_a_audio))
+    proceso_audio_salida = multiprocessing.Process(
+        target=audio_salida, args=(evento_terminacion_procesos, cola_traduccion_a_audio))
+
+    lista_procesos = [proceso_audio_entrada,
+                      proceso_tratar_texto, proceso_audio_salida]
+
+    signal.signal(signal.SIGINT, lambda s, f: salida(
+        s, f, evento_terminacion_procesos, lista_procesos))
+    signal.signal(signal.SIGTERM, lambda s, f: salida(
+        s, f, evento_terminacion_procesos, lista_procesos))
+
+    for proceso in lista_procesos:
+        proceso.start()
 
     try:
-        await asyncio.gather(*tasks)
-    except asyncio.CancelledError:
-        print("Tareas canceladas. Finalizando limpiamente.")
+        while not evento_terminacion_procesos.is_set():
+            time.sleep(5)
+            for proceso in lista_procesos:
+                if not proceso.is_alive():
+                    evento_terminacion_procesos.set()
+                    print(f"Proceso {proceso.name} ha terminado")
+    except KeyboardInterrupt:
+        print("SAliendo por interrupción de teclado..")
+    finally:
+        for proceso in lista_procesos:
+            proceso.terminate()
+        for proceso in lista_procesos:
+            proceso.join()
+        print("Todos los procesos y el hilo han sido terminados correctamente.")
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

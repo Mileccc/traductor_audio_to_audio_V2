@@ -1,13 +1,15 @@
 import asyncio
+import threading
 from traduccion.traductor_manager import Traductor
 
 
-class EjecucionComandos:
+class EjecucionComandos(threading.Thread):
 
-    def __init__(self, traductor, transcriptor_audio):
-        self.texto = ""
-        self.traductor = traductor
-        self.transcriptor_audio = transcriptor_audio
+    def __init__(self, evento_terminacion_procesos, cola_verificacion, cola_traduccion):
+        super().__init__()
+        self.cola_verificacion = cola_verificacion
+        self.evento_terminacion_procesos = evento_terminacion_procesos
+        self.cola_traduccion = cola_traduccion
         self.variantes_frances = ["francés", "frances", "frances,", "frances."]
         self.variantes_espanol = ["español", "espanol", "espanol,", "espanol."]
         self.variantes_arabe = ["árabe", "arabe", "arabe,", "arabe."]
@@ -18,63 +20,102 @@ class EjecucionComandos:
         self.variantes_ingles = ["inglés", "ingles", "ingles,", "ingles."]
         self.variantes_italiano = ["italiano", "italiano,", "italiano."]
 
+    def run(self):
+        while not self.evento_terminacion_procesos.is_set():
+            texto = self.cola_verificacion.get(timeout=60)
+            self.revisar_comando(texto)
+
     def revisar_comando(self, texto):
         if "detener" in texto.lower():
-            print("deteniendo la ejecución...")
-            raise asyncio.CancelledError
+            self.evento_terminacion_procesos.set()
+            return
+
+        comando_detectado = False
 
         if any(variacion in texto.lower() for variacion in self.variantes_frances):
-            print("Traduciendo al francés...")
-            self.transcriptor_audio.set_hablante(
-                "D:\\ProyectoTraductor\\Traductor_en_tiempo_real\\speakers\\es_fr\\f10_script2_clean_segment_8.wav_fr_173.wav", "fr")
-            self.traductor.cambiar_modelo("Helsinki-NLP/opus-mt-es-fr")
+            self.cola_traduccion.put({
+                "path_hablante": "es_fr/f10_script2_clean_segment_8.wav_fr_173.wav",
+                "idioma": "fr",
+                "modelo": "Helsinki-NLP/opus-mt-es-fr",
+                "texto": texto
+            })
+            comando_detectado = True
 
         if any(variacion in texto.lower() for variacion in self.variantes_espanol):
-            print("Traduciendo al español...")
-            self.transcriptor_audio.set_hablante(
-                "D:\\ProyectoTraductor\\Traductor_en_tiempo_real\\speakers\\es_es\\m4_script2_clean_segment_0.wav_es_2748.wav", "es")
-            self.traductor.cambiar_modelo("Helsinki-NLP/opus-mt-es-es")
+            self.cola_traduccion.put({
+                "path_hablante": "es_es/m4_script2_clean_segment_0.wav_es_2748.wav",
+                "idioma": "es",
+                "modelo": "Helsinki-NLP/opus-mt-es-es",
+                "texto": texto
+            })
+            comando_detectado = True
 
         if any(variacion in texto.lower() for variacion in self.variantes_arabe):
-            print("Traduciendo al árabe...")
-            self.transcriptor_audio.set_hablante(
-                "D:\\ProyectoTraductor\\Traductor_en_tiempo_real\\speakers\\es_ar\\m4_script2_clean_segment_0.wav_ar_2693.wav", "ar")
-            self.traductor.cambiar_modelo("Helsinki-NLP/opus-mt-es-ar")
+            self.cola_traduccion.put({
+                "path_hablante": "es_ar/m4_script2_clean_segment_0.wav_ar_2693.wav",
+                "idioma": "ar",
+                "modelo": "Helsinki-NLP/opus-mt-es-ar",
+                "texto": texto
+            })
+            comando_detectado = True
 
         if any(variacion in texto.lower() for variacion in self.variantes_chino):
-            print("Traduciendo al chino...")
-            self.transcriptor_audio.set_hablante(
-                "D:\\ProyectoTraductor\\Traductor_en_tiempo_real\\speakers\\es_cn\\f1_script1_clean_segment_0.wav_zh-cn_308.wav", "zh-cn")
-            self.traductor.cambiar_modelo("Helsinki-NLP/opus-mt-es-tw")
+            self.cola_traduccion.put({
+                "path_hablante": "es_cn/f1_script1_clean_segment_0.wav_zh-cn_308.wav",
+                "idioma": "zh-cn",
+                "modelo": "Helsinki-NLP/opus-mt-es-tw",
+                "texto": texto
+            })
+            comando_detectado = True
 
         if any(variacion in texto.lower() for variacion in self.variantes_ruso):
-            print("Traduciendo al ruso...")
-            self.transcriptor_audio.set_hablante(
-                "D:\\ProyectoTraductor\\Traductor_en_tiempo_real\\speakers\\es_ru\\m6_script1_clean_segment_30.wav_ru_3075.wav", "ru")
-            self.traductor.cambiar_modelo("Helsinki-NLP/opus-mt-es-ru")
+            self.cola_traduccion.put({
+                "path_hablante": "es_ru/m6_script1_clean_segment_30.wav_ru_3075.wav",
+                "idioma": "ru",
+                "modelo": "Helsinki-NLP/opus-mt-es-ru",
+                "texto": texto
+            })
+            comando_detectado = True
 
         if any(variacion in texto.lower() for variacion in self.variantes_aleman):
-            print("Traduciendo al alemán...")
-            self.transcriptor_audio.set_hablante(
-                "D:\\ProyectoTraductor\\Traductor_en_tiempo_real\\speakers\\es_ru\\m4_script2_clean_segment_0.wav_ru_2739.wav", "de")
-            self.traductor.cambiar_modelo("Helsinki-NLP/opus-mt-es-de")
+            self.cola_traduccion.put({
+                "path_hablante": "es_de/m4_script2_clean_segment_0.wav_de_2739.wav",
+                "idioma": "de",
+                "modelo": "Helsinki-NLP/opus-mt-es-de",
+                "texto": texto
+            })
+            comando_detectado = True
 
         if any(variacion in texto.lower() for variacion in self.variantes_ingles):
-            print("Traduciendo al inglés...")
-            self.transcriptor_audio.set_hablante(
-                "D:\\ProyectoTraductor\\Traductor_en_tiempo_real\\speakers\\es_en\\2.wav", "en")
-            self.traductor.cambiar_modelo("Helsinki-NLP/opus-mt-es-en")
+            self.cola_traduccion.put({
+                "path_hablante": "es_en/2.wav",
+                "idioma": "en",
+                "modelo": "Helsinki-NLP/opus-mt-es-en",
+                "texto": texto
+            })
+            comando_detectado = True
 
         if any(variacion in texto.lower() for variacion in self.variantes_italiano):
-            print("Traduciendo al italiano...")
-            self.transcriptor_audio.set_hablante(
-                "D:\\ProyectoTraductor\\Traductor_en_tiempo_real\\speakers\\es_it\\m2_script1_clean_segment_7.wav_it_2395.wav", "it")
-            self.traductor.cambiar_modelo("Helsinki-NLP/opus-mt-es-it")
+            self.cola_traduccion.put({
+                "path_hablante": "es_it/m2_script1_clean_segment_7.wav_it_2395.wav",
+                "idioma": "it",
+                "modelo": "Helsinki-NLP/opus-mt-es-it",
+                "texto": texto
+            })
+            comando_detectado = True
 
-        if "pausar audio" in texto.lower():
-            print("Pausando el audio...")
-            self.transcriptor_audio.pausar_audio()
+        if not comando_detectado:
+            self.cola_traduccion.put({
+                "path_hablante": "",
+                "idioma": "",
+                "modelo": "",
+                "texto": texto
+            })
 
-        if "activar audio" in texto.lower():
-            print("Reproduciendo el audio...")
-            self.transcriptor_audio.reanudar_audio()
+        # if "pausar audio" in texto.lower():
+        #     print("Pausando el audio...")
+        #     self.transcriptor_audio.pausar_audio()
+
+        # if "activar audio" in texto.lower():
+        #     print("Reproduciendo el audio...")
+        #     self.transcriptor_audio.reanudar_audio()
