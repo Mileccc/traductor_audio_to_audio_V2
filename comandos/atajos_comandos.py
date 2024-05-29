@@ -1,15 +1,17 @@
 import asyncio
 import threading
+from queue import Empty
 from traduccion.traductor_manager import Traductor
 
 
 class EjecucionComandos(threading.Thread):
 
-    def __init__(self, evento_terminacion_procesos, cola_verificacion, cola_traduccion):
+    def __init__(self, evento_terminacion_procesos, cola_verificacion, cola_traduccion, evento_activacion_audio):
         super().__init__()
         self.cola_verificacion = cola_verificacion
         self.evento_terminacion_procesos = evento_terminacion_procesos
         self.cola_traduccion = cola_traduccion
+        self.evento_activacion_audio = evento_activacion_audio
         self.variantes_frances = ["francés", "frances", "frances,", "frances."]
         self.variantes_espanol = ["español", "espanol", "espanol,", "espanol."]
         self.variantes_arabe = ["árabe", "arabe", "arabe,", "arabe."]
@@ -22,8 +24,11 @@ class EjecucionComandos(threading.Thread):
 
     def run(self):
         while not self.evento_terminacion_procesos.is_set():
-            texto = self.cola_verificacion.get(timeout=60)
-            self.revisar_comando(texto)
+            try:
+                texto = self.cola_verificacion.get(timeout=60)
+                self.revisar_comando(texto)
+            except Empty:
+                continue
 
     def revisar_comando(self, texto):
         if "detener" in texto.lower():
@@ -104,6 +109,18 @@ class EjecucionComandos(threading.Thread):
             })
             comando_detectado = True
 
+        if "pausar audio" in texto.lower():
+            print("Pausando el audio...")
+            self.evento_activacion_audio.set()
+            print("Audio pausado añadido a la cola.")
+            comando_detectado = True
+
+        if "activar audio" in texto.lower():
+            print("Activando el audio...")
+            self.evento_activacion_audio.clear()
+
+            comando_detectado = True
+
         if not comando_detectado:
             self.cola_traduccion.put({
                 "path_hablante": "",
@@ -111,11 +128,3 @@ class EjecucionComandos(threading.Thread):
                 "modelo": "",
                 "texto": texto
             })
-
-        # if "pausar audio" in texto.lower():
-        #     print("Pausando el audio...")
-        #     self.transcriptor_audio.pausar_audio()
-
-        # if "activar audio" in texto.lower():
-        #     print("Reproduciendo el audio...")
-        #     self.transcriptor_audio.reanudar_audio()

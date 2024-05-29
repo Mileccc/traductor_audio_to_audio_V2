@@ -1,5 +1,6 @@
 from transformers import MarianMTModel, MarianTokenizer
 import threading
+from queue import Empty
 
 
 class Traductor(threading.Thread):
@@ -19,14 +20,17 @@ class Traductor(threading.Thread):
 
     def run(self):
         while not self.evento_terminacion_procesos.is_set():
-            dic_traduccion = self.cola_traduccion.get(timeout=60)
-            if dic_traduccion["modelo"] != self.modelo and dic_traduccion["modelo"] != "":
-                self.cargar_modelo(dic_traduccion["modelo"])
-            if dic_traduccion["idioma"] != "":
-                self.idioma = dic_traduccion["idioma"]
-                self.path_hablante = dic_traduccion["path_hablante"]
-            self.traducir(dic_traduccion["texto"],
-                          self.idioma, self.path_hablante)
+            try:
+                dic_traduccion = self.cola_traduccion.get(timeout=60)
+                if dic_traduccion["modelo"] != self.modelo and dic_traduccion["modelo"] != "":
+                    self.cargar_modelo(dic_traduccion["modelo"])
+                if dic_traduccion["idioma"] != "":
+                    self.idioma = dic_traduccion["idioma"]
+                    self.path_hablante = dic_traduccion["path_hablante"]
+                self.traducir(dic_traduccion["texto"],
+                              self.idioma, self.path_hablante)
+            except Empty:
+                pass
 
     def traducir(self, texto, idioma, path_hablante):
         """

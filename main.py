@@ -45,9 +45,9 @@ def audio_entrada(evento_terminacion_procesos, cola_verificacion):
 # ********************TRATAR TEXTO ************************
 
 
-def funcion_tratar_texto(cola_verificacion, evento_terminacion_procesos, cola_traduccion, cola_traduccion_a_audio):
+def funcion_tratar_texto(cola_verificacion, evento_terminacion_procesos, cola_traduccion, cola_traduccion_a_audio, evento_activacion_audio):
     comandos = EjecucionComandos(
-        evento_terminacion_procesos, cola_verificacion, cola_traduccion)
+        evento_terminacion_procesos, cola_verificacion, cola_traduccion, evento_activacion_audio)
     traductor = Traductor(
         cola_traduccion, cola_traduccion_a_audio, evento_terminacion_procesos)
 
@@ -57,18 +57,19 @@ def funcion_tratar_texto(cola_verificacion, evento_terminacion_procesos, cola_tr
     traductor.join()
 
 
-def tratar_texto(cola_verificacion, evento_terminacion_procesos, cola_traduccion, cola_traduccion_a_audio):
-    asyncio.run(funcion_tratar_texto(
-        cola_verificacion, evento_terminacion_procesos, cola_traduccion, cola_traduccion_a_audio))
+def tratar_texto(cola_verificacion, evento_terminacion_procesos, cola_traduccion, cola_traduccion_a_audio, evento_activacion_audio):
+    funcion_tratar_texto(
+        cola_verificacion, evento_terminacion_procesos, cola_traduccion, cola_traduccion_a_audio, evento_activacion_audio)
 
 # ********************AUDIO SALIDA ************************
 
 
-def funcion_audio_salida(evento_terminacion_procesos, cola_traduccion_a_audio):
+def funcion_audio_salida(evento_terminacion_procesos, cola_traduccion_a_audio, evento_activacion_audio):
     cola_audios_final = queue.Queue()
     texto_a_audio = TranscriptorAAudio(
         evento_terminacion_procesos, cola_traduccion_a_audio, cola_audios_final)
-    reproducir = Reproductor(cola_audios_final, evento_terminacion_procesos)
+    reproducir = Reproductor(
+        cola_audios_final, evento_terminacion_procesos, evento_activacion_audio)
 
     texto_a_audio.start()
     reproducir.start()
@@ -76,14 +77,15 @@ def funcion_audio_salida(evento_terminacion_procesos, cola_traduccion_a_audio):
     reproducir.join()
 
 
-def audio_salida(evento_terminacion_procesos, cola_traduccion_a_audio):
-    asyncio.run(funcion_audio_salida(
-        evento_terminacion_procesos, cola_traduccion_a_audio))
+def audio_salida(evento_terminacion_procesos, cola_traduccion_a_audio, evento_activacion_audio):
+    funcion_audio_salida(
+        evento_terminacion_procesos, cola_traduccion_a_audio, evento_activacion_audio)
 
 
 def main():
     # EVENTOS
     evento_terminacion_procesos = multiprocessing.Event()
+    evento_activacion_audio = multiprocessing.Event()
 
     # COLAS
     cola_verificacion = multiprocessing.Queue()
@@ -94,9 +96,9 @@ def main():
     proceso_audio_entrada = multiprocessing.Process(
         target=audio_entrada, args=(evento_terminacion_procesos, cola_verificacion))
     proceso_tratar_texto = multiprocessing.Process(
-        target=tratar_texto, args=(cola_verificacion, evento_terminacion_procesos, cola_traduccion, cola_traduccion_a_audio))
+        target=tratar_texto, args=(cola_verificacion, evento_terminacion_procesos, cola_traduccion, cola_traduccion_a_audio, evento_activacion_audio))
     proceso_audio_salida = multiprocessing.Process(
-        target=audio_salida, args=(evento_terminacion_procesos, cola_traduccion_a_audio))
+        target=audio_salida, args=(evento_terminacion_procesos, cola_traduccion_a_audio, evento_activacion_audio))
 
     lista_procesos = [proceso_audio_entrada,
                       proceso_tratar_texto, proceso_audio_salida]
