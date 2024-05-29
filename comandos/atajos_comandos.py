@@ -2,6 +2,7 @@ import asyncio
 import threading
 from queue import Empty
 from traduccion.traductor_manager import Traductor
+import re
 
 
 class EjecucionComandos(threading.Thread):
@@ -26,6 +27,7 @@ class EjecucionComandos(threading.Thread):
         while not self.evento_terminacion_procesos.is_set():
             try:
                 texto = self.cola_verificacion.get(timeout=60)
+                texto = re.sub(r'\.\.\.|[.,]', '', texto)
                 self.revisar_comando(texto)
             except Empty:
                 continue
@@ -84,7 +86,7 @@ class EjecucionComandos(threading.Thread):
 
         if any(variacion in texto.lower() for variacion in self.variantes_aleman):
             self.cola_traduccion.put({
-                "path_hablante": "es_de/m4_script2_clean_segment_0.wav_de_2739.wav",
+                "path_hablante": "es_de/m9_script2_clean_segment_4.wav_de_3678.wav",
                 "idioma": "de",
                 "modelo": "Helsinki-NLP/opus-mt-es-de",
                 "texto": texto

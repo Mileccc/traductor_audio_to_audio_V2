@@ -30,11 +30,12 @@ class AudioManager(threading.Thread):
             with sr.Microphone(device_index=self.micro_predeterminado) as source:
                 self.grabacion.adjust_for_ambient_noise(source, duration=1)
                 self.grabacion.dynamic_energy_threshold = False
-                self.grabacion.pause_threshold = 0.5
-                self.grabacion.energy_threshold = 300
+                self.grabacion.pause_threshold = 1
+                self.grabacion.energy_threshold = 2000
                 while not self.evento_terminacion_procesos.is_set():
                     print("Escuchando...")
-                    audio: object = self.grabacion.listen(source)
+                    audio: object = self.grabacion.listen(
+                        source, phrase_time_limit=4)
                     logging.debug("Terminada la grabacion")
                     audio_data: io.BytesIO = io.BytesIO(audio.get_wav_data())
                     logging.debug("Datos tranformados")

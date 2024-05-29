@@ -16,7 +16,7 @@ class TranscriptorAAudio(threading.Thread):
         self.evento_terminacion_procesos = evento_terminacion_procesos
         self.cola_traduccion_a_audio = cola_traduccion_a_audio
         self.nombre_modelo = "tts_models/multilingual/multi-dataset/xtts_v2"
-        self.audio_hablante = "D:\ProyectoTraductor\Traductor_en_tiempo_real\speakers\es_es\mi_voz.wav"
+        self.audio_hablante = "speakers/es_es/m4_script2_clean_segment_0.wav_es_2748.wav"
         self.lenguaje = "es"
         self.tts = None
         self.dispositivo = 'cuda' if torch.cuda.is_available() else 'cpu'
