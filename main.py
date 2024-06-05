@@ -8,9 +8,10 @@ import queue
 from voz_a_texto.captura_audio import AudioManager
 from voz_a_texto.stt import TranscriptorATexto
 from traduccion.traductor_manager import Traductor
-from texto_a_voz.conversor_voz import TranscriptorAAudio
+# from texto_a_voz.conversor_voz import TranscriptorAAudio
 from comandos.atajos_comandos import EjecucionComandos
-from texto_a_voz.reproducir_audio import Reproductor
+# from texto_a_voz.reproducir_audio import Reproductor
+from texto_a_voz.conversor_server import TranscriptorAAudio
 
 
 def salida(signum, frame, evento_terminacion_procesos, lista):
@@ -67,14 +68,10 @@ def tratar_texto(cola_verificacion, evento_terminacion_procesos, cola_traduccion
 def funcion_audio_salida(evento_terminacion_procesos, cola_traduccion_a_audio, evento_activacion_audio):
     cola_audios_final = queue.Queue()
     texto_a_audio = TranscriptorAAudio(
-        evento_terminacion_procesos, cola_traduccion_a_audio, cola_audios_final)
-    reproducir = Reproductor(
-        cola_audios_final, evento_terminacion_procesos, evento_activacion_audio)
+        evento_terminacion_procesos, cola_traduccion_a_audio, evento_activacion_audio)
 
     texto_a_audio.start()
-    reproducir.start()
     texto_a_audio.join()
-    reproducir.join()
 
 
 def audio_salida(evento_terminacion_procesos, cola_traduccion_a_audio, evento_activacion_audio):

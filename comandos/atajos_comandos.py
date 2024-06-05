@@ -41,7 +41,7 @@ class EjecucionComandos(threading.Thread):
 
         if any(variacion in texto.lower() for variacion in self.variantes_frances):
             self.cola_traduccion.put({
-                "path_hablante": "es_fr/f10_script2_clean_segment_8.wav_fr_173.wav",
+                "path_hablante": "es_fr_f1.wav",
                 "idioma": "fr",
                 "modelo": "Helsinki-NLP/opus-mt-es-fr",
                 "texto": texto
@@ -50,7 +50,7 @@ class EjecucionComandos(threading.Thread):
 
         if any(variacion in texto.lower() for variacion in self.variantes_espanol):
             self.cola_traduccion.put({
-                "path_hablante": "es_es/m4_script2_clean_segment_0.wav_es_2748.wav",
+                "path_hablante": "es_es_m4.wav",
                 "idioma": "es",
                 "modelo": "Helsinki-NLP/opus-mt-es-es",
                 "texto": texto
@@ -59,7 +59,7 @@ class EjecucionComandos(threading.Thread):
 
         if any(variacion in texto.lower() for variacion in self.variantes_arabe):
             self.cola_traduccion.put({
-                "path_hablante": "es_ar/m4_script2_clean_segment_0.wav_ar_2693.wav",
+                "path_hablante": "es_ar_m1.wav",
                 "idioma": "ar",
                 "modelo": "Helsinki-NLP/opus-mt-es-ar",
                 "texto": texto
@@ -68,7 +68,7 @@ class EjecucionComandos(threading.Thread):
 
         if any(variacion in texto.lower() for variacion in self.variantes_chino):
             self.cola_traduccion.put({
-                "path_hablante": "es_cn/f1_script1_clean_segment_0.wav_zh-cn_308.wav",
+                "path_hablante": "es_cn_f1.wav",
                 "idioma": "zh-cn",
                 "modelo": "Helsinki-NLP/opus-mt-es-tw",
                 "texto": texto
@@ -77,7 +77,7 @@ class EjecucionComandos(threading.Thread):
 
         if any(variacion in texto.lower() for variacion in self.variantes_ruso):
             self.cola_traduccion.put({
-                "path_hablante": "es_ru/m6_script1_clean_segment_30.wav_ru_3075.wav",
+                "path_hablante": "es_ru_m1.wav",
                 "idioma": "ru",
                 "modelo": "Helsinki-NLP/opus-mt-es-ru",
                 "texto": texto
@@ -86,7 +86,7 @@ class EjecucionComandos(threading.Thread):
 
         if any(variacion in texto.lower() for variacion in self.variantes_aleman):
             self.cola_traduccion.put({
-                "path_hablante": "es_de/m9_script2_clean_segment_4.wav_de_3678.wav",
+                "path_hablante": "es_de_m1.wav",
                 "idioma": "de",
                 "modelo": "Helsinki-NLP/opus-mt-es-de",
                 "texto": texto
@@ -95,7 +95,7 @@ class EjecucionComandos(threading.Thread):
 
         if any(variacion in texto.lower() for variacion in self.variantes_ingles):
             self.cola_traduccion.put({
-                "path_hablante": "es_en/2.wav",
+                "path_hablante": "es_en_m1.wav",
                 "idioma": "en",
                 "modelo": "Helsinki-NLP/opus-mt-es-en",
                 "texto": texto
@@ -104,7 +104,7 @@ class EjecucionComandos(threading.Thread):
 
         if any(variacion in texto.lower() for variacion in self.variantes_italiano):
             self.cola_traduccion.put({
-                "path_hablante": "es_it/m2_script1_clean_segment_7.wav_it_2395.wav",
+                "path_hablante": "es_it_m1.wav",
                 "idioma": "it",
                 "modelo": "Helsinki-NLP/opus-mt-es-it",
                 "texto": texto
