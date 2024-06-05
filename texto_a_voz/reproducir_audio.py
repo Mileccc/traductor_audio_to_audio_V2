@@ -13,8 +13,22 @@ class Reproductor(threading.Thread):
 
     def run(self):
         p = pyaudio.PyAudio()
+
+        virtual_device_index = None
+        for i in range(p.get_device_count()):
+            device_info = p.get_device_info_by_index(i)
+            if 'CABLE Input' in device_info['name']:
+                virtual_device_index = i
+                print(
+                    f"Dispositivo de audio virtual encontrado: {device_info['name']}")
+                break
+
+        if virtual_device_index is None:
+            raise Exception(
+                "Dispositivo de audio virtual 'CABLE Input (VB-Audio Virtual Cable)' no encontrado")
+
         stream = p.open(format=pyaudio.paInt16, channels=1,
-                        rate=22050, output=True)
+                        rate=22050, output=True, output_device_index=virtual_device_index)
 
         try:
             while not self.evento_terminacion_procesos.is_set():

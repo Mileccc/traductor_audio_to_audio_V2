@@ -16,14 +16,15 @@ class Traductor(threading.Thread):
         self.tokenizer = MarianTokenizer.from_pretrained(self.modelo)
         self.model = MarianMTModel.from_pretrained(self.modelo)
         self.idioma = "es"
-        self.path_hablante = "Helsinki-NLP/opus-mt-es-es"
+        self.path_hablante = "es_es/m4_script2_clean_segment_0.wav_es_2748.wav"
 
     def run(self):
         while not self.evento_terminacion_procesos.is_set():
             try:
                 dic_traduccion = self.cola_traduccion.get(timeout=60)
                 if dic_traduccion["modelo"] != self.modelo and dic_traduccion["modelo"] != "":
-                    self.cargar_modelo(dic_traduccion["modelo"])
+                    self.modelo = dic_traduccion["modelo"]
+                    self.cargar_modelo(self.modelo)
                 if dic_traduccion["idioma"] != "":
                     self.idioma = dic_traduccion["idioma"]
                     self.path_hablante = dic_traduccion["path_hablante"]
