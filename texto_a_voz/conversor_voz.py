@@ -10,8 +10,9 @@ from queue import Empty
 
 
 class TranscriptorAAudio(threading.Thread):
-    def __init__(self, evento_terminacion_procesos, cola_traduccion_a_audio, cola_audios_final):
+    def __init__(self, evento_terminacion_procesos, cola_traduccion_a_audio, cola_audios_final, evento_activacion_audio):
         super().__init__()
+        self.evento_activacion_audio = evento_activacion_audio
         self.cola_audios_final = cola_audios_final
         self.evento_terminacion_procesos = evento_terminacion_procesos
         self.cola_traduccion_a_audio = cola_traduccion_a_audio
@@ -28,14 +29,18 @@ class TranscriptorAAudio(threading.Thread):
         self.tts.to(self.dispositivo)
         while not self.evento_terminacion_procesos.is_set():
             try:
-                datos = self.cola_traduccion_a_audio.get(timeout=60)
-                if self.lenguaje != datos["idioma"]:
-                    self.lenguaje = datos["idioma"]
-                    self.audio_hablante = f"speakers/{datos['path_hablante']}"
+                while not self.evento_activacion_audio.is_set():
+                    try:
+                        datos = self.cola_traduccion_a_audio.get(timeout=60)
+                        if self.lenguaje != datos["idioma"]:
+                            self.lenguaje = datos["idioma"]
+                            self.audio_hablante = f"speakers/{datos['path_hablante']}"
 
-                self.texto_a_audio(datos["texto_traducido"])
-            except Empty:
-                pass
+                        self.texto_a_audio(datos["texto_traducido"])
+                    except Empty:
+                        pass
+            finally:
+                self.limpiar_cola()
 
     def texto_a_audio(self, texto):
         audio_data = self.tts.tts(
@@ -45,3 +50,7 @@ class TranscriptorAAudio(threading.Thread):
         audio_array_int16 = np.int16(audio_array * 32767)
         self.cola_audios_final.put(audio_array_int16)
         print(f"Audio transcrito guardado correctamente")
+
+    def limpiar_cola(self):
+        while not self.cola_traduccion_a_audio.empty():
+            self.cola_traduccion_a_audio.get_nowait()

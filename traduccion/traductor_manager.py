@@ -12,11 +12,11 @@ class Traductor(threading.Thread):
         self.cola_traduccion = cola_traduccion
         self.cola_traduccion_a_audio = cola_traduccion_a_audio
         self.evento_terminacion_procesos = evento_terminacion_procesos
-        self.modelo = "Helsinki-NLP/opus-mt-es-es"
+        self.modelo = "Helsinki-NLP/opus-mt-es-en"
         self.tokenizer = MarianTokenizer.from_pretrained(self.modelo)
         self.model = MarianMTModel.from_pretrained(self.modelo)
-        self.idioma = "es"
-        self.path_hablante = "es_es/m4_script2_clean_segment_0.wav_es_2748.wav"
+        self.idioma = "en"
+        self.path_hablante = "es_en/2.wav"
 
     def run(self):
         while not self.evento_terminacion_procesos.is_set():

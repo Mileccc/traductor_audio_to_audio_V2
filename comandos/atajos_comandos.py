@@ -22,6 +22,10 @@ class EjecucionComandos(threading.Thread):
         self.variantes_aleman = ["alemán", "aleman", "aleman,", "aleman."]
         self.variantes_ingles = ["inglés", "ingles", "ingles,", "ingles."]
         self.variantes_italiano = ["italiano", "italiano,", "italiano."]
+        self.variantes_detener = ["detener", "de tener",
+                                  "detener.", "de tener.", "detener,", "de tener,",]
+        self.variantes_activar = ["activar audio"]
+        self.variantes_pausar = ["pausar audio"]
 
     def run(self):
         while not self.evento_terminacion_procesos.is_set():
@@ -33,7 +37,8 @@ class EjecucionComandos(threading.Thread):
                 continue
 
     def revisar_comando(self, texto):
-        if "detener" in texto.lower():
+        # if "detener" in texto.lower():
+        if any(variacion in texto.lower() for variacion in self.variantes_detener):
             self.evento_terminacion_procesos.set()
             return
 
@@ -111,22 +116,25 @@ class EjecucionComandos(threading.Thread):
             })
             comando_detectado = True
 
-        if "pausar audio" in texto.lower():
+        # if "pausar audio" in texto.lower():
+        if any(variacion in texto.lower() for variacion in self.variantes_pausar):
             print("Pausando el audio...")
             self.evento_activacion_audio.set()
             print("Audio pausado añadido a la cola.")
             comando_detectado = True
 
-        if "activar audio" in texto.lower():
+        # if "activar audio" in texto.lower():
+        if any(variacion in texto.lower() for variacion in self.variantes_activar):
             print("Activando el audio...")
             self.evento_activacion_audio.clear()
 
             comando_detectado = True
 
         if not comando_detectado:
-            self.cola_traduccion.put({
-                "path_hablante": "",
-                "idioma": "",
-                "modelo": "",
-                "texto": texto
-            })
+            if not self.evento_activacion_audio.is_set():
+                self.cola_traduccion.put({
+                    "path_hablante": "",
+                    "idioma": "",
+                    "modelo": "",
+                    "texto": texto
+                })

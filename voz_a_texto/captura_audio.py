@@ -5,6 +5,7 @@ import pyaudio
 import speech_recognition as sr
 import logging
 import multiprocessing
+import numpy as np
 
 
 class AudioManager(threading.Thread):
@@ -30,21 +31,31 @@ class AudioManager(threading.Thread):
             with sr.Microphone(device_index=self.micro_predeterminado) as source:
                 self.grabacion.adjust_for_ambient_noise(source, duration=1)
                 self.grabacion.dynamic_energy_threshold = False
-                self.grabacion.pause_threshold = 1
-                self.grabacion.energy_threshold = 2000
+                self.grabacion.pause_threshold = 0.5
+                self.grabacion.energy_threshold = 300
                 while not self.evento_terminacion_procesos.is_set():
                     print("Escuchando...")
                     audio: object = self.grabacion.listen(
-                        source, phrase_time_limit=4)
+                        source)
                     logging.debug("Terminada la grabacion")
                     audio_data: io.BytesIO = io.BytesIO(audio.get_wav_data())
                     logging.debug("Datos tranformados")
-                    try:
-                        self.cola_audios_micro.put_nowait(audio_data)
-                        logging.debug("Dato anadido a la cola")
-                    except queue.Full:
-                        logging.warning(
-                            "La cola_audios_micro está llena; el dato no fue añadido.")
+
+                    # Calcular la amplitud media
+                    audio_np = np.frombuffer(
+                        audio.get_raw_data(), dtype=np.int16)
+                    amplitud_media = np.mean(np.abs(audio_np))
+                    print(f"Amplitud media: {amplitud_media}")
+
+                    if amplitud_media > 400:
+                        try:
+                            self.cola_audios_micro.put_nowait(audio_data)
+                            logging.debug("Dato anadido a la cola")
+                        except queue.Full:
+                            logging.warning(
+                                "La cola_audios_micro está llena; el dato no fue añadido.")
+                    else:
+                        print("El audio no alcanzo la amplitud para ser procesado.")
         except Exception as e:
             logging.error("Error al iniciar escucha continua: %s", e)
 
